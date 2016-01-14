@@ -1,7 +1,6 @@
-## How to build a weathermap using the OpenAPI
+## How to build a weathermap using CAPM's OpenAPI
 
 **These files can be used to create a .war file which can be hosted on the data aggregator.** 
-**The index.html can reference internal or external web sites and links.**
 
 1. Clone the weathermap repository to your local system.
 2. You must update the index.html file to point at your Data Aggregator
@@ -15,7 +14,7 @@
      * router MI-SITE has interfaces Gi1 with description "Link to NY-WAN"
      * router NY-WAN has interfaces Gi1 with description "Origin: NY Destination: DataCeter", Gi2's description "Origin:NY Destination:FL", Gi3's description "Origin: NY Destination: AZ" and Gi4's description is "Origin: NY Destination:MI"
      * This is a template so feel free to tie it into your own inventory database and have fun with it.
-![Image of CAPM Weathermap](https://github.com/CA-PM/weathermap/images/weathermap.png) 
+![Image of CAPM Weathermap](https://github.com/CA-PM/weathermap/blob/master/images/weathermap.png) 
 3. Create the WAR file: (you can also do this on your DA if you have java installed /usr/bin/jar)
    * C:\Program Files\Java\jdk1.7.0_45\bin\jar -cfm ..\weathermap-bundle-2.6.0.war META-INF\MANIFEST.MF *
 4. Move to DA Deploy directory:
