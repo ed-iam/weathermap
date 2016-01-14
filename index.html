@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html>
+<head lang="en">
+    <meta charset="UTF-8">
+    <title></title>
+    <link rel="stylesheet" href="css/includes/CA_dashboard.css" />
+    <link rel="stylesheet" href="css/includes/jquery.dataTables.css" />
+    <script type="text/javascript" src="./lib/mine/caHelperFunctions.js"></script>
+    <script type="text/javascript" src="./lib/jquery/jquery-1.11.1.min.js"></script>
+    <script type="text/javascript" src="./lib/jquery/jquery.dataTables.min.js"></script>
+    <script type="text/javascript" src="./lib/jsonPath/jsonpath-0.8.0.js"></script>
+    <script type="text/javascript" src="./lib/d3/d3.min.js"></script>
+    <script type="text/javascript" src="./lib/topojson/topojson.js"></script>
+    <script type="text/javascript" src="./lib/datamaps/datamaps.usa.min.js"></script>
+</head>
+
+<body>
+
+<div id="info" class="debug"> </div>
+<div class="view view_2">
+    <div class="heading">NY WAN/LAN Circuit Map</div>
+    <div id="map" class="content" style="height: 100px;"></div>
+</div>
+<div class="view view_2">
+    <div class="heading">Server CPU Utilization Overview</div>
+    <div id="tableView" class="content"></div>
+    <table id="table" class="nowrap" style="height: auto;"></table>
+</div>
+
+<div class="view view_1">
+    <p></p>
+    <div class="heading">Circuit Utilization Overview</div>
+    <div id="tableView2" class="content"></div>
+    <table id="intTable" class="nowrap" style="height: auto;"></table>
+</div>
+
+
+<script>
+    // Define the API endpoint of the target DA system
+    var daApiUrl="http://<insert DA HOST>:8581/odata/api/"
+    var groupID=decodeURI(getQueryVariable("subject"));
+    var startTime=getQueryVariable("start");
+    var endTime=getQueryVariable("end");
+    var devicesNoLocation=[];
+    var minValue, maxValue;
+
+    if (getQueryVariable("debug")) {
+        $( ".debug" ).show();
+    }
+    else {
+        $( ".debug" ).hide();
+    }
+    // Define the lookups for geo-coordinates and threshold ranges
+    var sites = ({
+        AZ: ({latitude: 33.4483333, longitude: -112.0733333}),
+        NY: ({latitude: 40.7141667, longitude: -74.0063889}),
+        MI: ({latitude: 42.3313889, longitude: -83.0458333}),
+        FL: ({latitude: 25.7738889, longitude: -80.1938889}),
+        Da: ({latitude: 40.7389332, longitude: -72.5580158})
+    });
+    // Map the circuit utilization value to a specific color range
+    // 0-60: Green, 60-80: Yellow, 80-90: Orange, 90-100: Red
+    var utilizationColor=d3.scale.threshold().domain([60,80,90,100]).range(["green","yellow","orange","red"]);
+    // Map the circuits speed (Mbps) to a thickness range
+    var linkThickness=d3.scale.threshold().domain([1,10,100,1000,10000,1000000]).range([1,2,3,4,6,8])
+
+    // Define data source location based on URI parameters passed
+    if (getQueryVariable("test")) {
+        // It's test mode so load the local json data set
+        var dataSource="./json/dod_devices.json";
+        var dataSource2="./json/dod_interfaces.json";
+    }
+    else {
+        // Build OpenAPI URL to fetch for devices using hard coded and variable URL parameters
+        var dataSource = daApiUrl + "devices?$expand=interfaces&" +
+                         "$select=ID,Name,PrimaryIPAddress,DisplayDescription,DisplayName,interfaces/ID,interfaces/Name,interfaces/Alias,interfaces/DisplayName,interfaces/DisplayDescription&" +
+                         "$filter=((groups/Name eq 'TIXCHANGE') and ((endswith(Name, 'WAN') eq true) or (endswith(Name, 'SITE') eq true)))&" +
+                         "$apply=groupby(cpumfs/DeviceItemID, aggregate(cpumfs(im_Utilization with average as Value)))&" +
+                         "&starttime=1443706023&endtime=1443792423&resolution=RATE&" +
+                         "&$top=500&top=2000&" +
+                         "$format=json";
+    }
+    $( ".debug" ).append("<i>Datasource/URL: " + dataSource + "</i><p></p>" );
+
+    var allItems=[]; //The final results set
+    var circuits=[];
+    var fillKey; // Variable to hold the color of each circle
+
+    //var utilizationColor = d3.scale.linear().domain([0,100]).range(["grey","red"]);
+
+
+    // Iterate the results set to get results for each device and build final results set
+    $.each(jsonPath(loadJSON(dataSource),"$.d.results[*]"), function(d, device) {
+
+        if ((Number(device.Latitude) < 0 || Number(device.Latitude > 0)) && (Number(device.Longitude) <0 || Number(device.Longitude >0))) {
+
+            // Get aggregated value in JSON data
+            aggrValue=Math.round(Number(device.cpumfs.results[0].Value) *100) / 100;
+            // Determine which color should be associated based on value
+            fillKey=utilizationColor(aggrValue);
+            // Now get the sites links
+            var dataSource3 = daApiUrl + "/devices(" + Number(device.ID) + ")/interfaces?" +
+                              "$select=ID,Name,Alias,Description,DisplayDescription,DisplayName,IPAddresses,SpeedIn&" +
+                              "$apply=groupby(portmfs/ID,aggregate(portmfs(im_Utilization with average as Value)))&" +
+                              "&starttime=1443705599&endtime=1443791999&resolution=RATE&" +
+                              "top=2000&$format=json"
+            $( ".debug" ).append("Device Interface Query: <i>" + dataSource3 + "</i><br>" );
+
+            /*
+             $.each(jsonPath(loadJSON(dataSource2),"$.d.results[*]"), function(d, interface) {
+                 if (interface.Alias.indexOf("Origin:") > -1) {
+                    var start=sites[interface.Alias.substr(7,2)];
+                    var end=sites[interface.Alias.substr(22,2)];
+                    var utilization=Math.round(interface.portmfs.results[0].Value * 100) / 100
+                    circuits.push({
+                        origin: start,
+                        destination: end,
+                        options: {
+                            strokeWidth: linkThickness(interface.SpeedIn),
+                            strokeColor: utilizationColor(utilization),
+                            greatArc: true},
+                        alias: interface.Alias,
+                        utilization: utilization,
+                        name: interface.DisplayName,
+                        ip: interface.IPAddresses,
+                        speed: Number(interface.SpeedIn),
+                        thickness: linkThickness(interface.SpeedIn)
+                    })
+                }
+             });
+
+             */
+            // Build final results set for Map and table
+            allItems.push({
+                name: device.Name,
+                radius: 15,
+                fillKey: fillKey,
+                latitude: Number(device.Latitude),
+                longitude: Number(device.Longitude),
+                description: device.LocationDesc,
+                ip: device.PrimaryIPAddress,
+                util: aggrValue,
+                wanUtil:40,
+                lanUtil: 20
+            })
+        }
+        // No long and lat found so lets add the device to the list of no location devices
+        else {
+            devicesNoLocation.push(device.Name);
+        }
+    });
+    // Create the map!
+    var map = new Datamap({
+        element: document.getElementById('map'),
+        scope: 'usa',
+        //height: 400,
+        //width: 800,
+        projection: 'mercator',
+        responsive: true,
+        fills: {
+            defaultFill: "#BDD0DF",
+            green: '#07a86d',
+            yellow: '#ffe69a',
+            orange: '#fcac3a',
+            red: '#ff4e50',
+            unknown: '#afbec5'
+        },
+        geographyConfig: {
+            highlightFillColor: '#FC8D59',
+            highlightOnHover: false,
+            popupOnHover: false,
+            borderWidth: 2
+        },
+        data: allItems,
+        done: function(datamap) {
+            datamap.svg.call(d3.behavior.zoom().on("zoom", redraw));
+
+            function redraw() {
+                datamap.svg.selectAll("g").attr("transform", "translate(" + d3.event.translate + ")scale(" + d3.event.scale + ")");
+            }
+        }
+    });
+
+    // If we found devices with no homes, display a message w/ the count
+    if (devicesNoLocation.length > 0) {$( ".debug" ).append("<p><i> " + devicesNoLocation.length + "  devices not displayed due to lack of valid latitude and longitude attributes</i></p>" );}
+
+    // Add the mouse over effect for the device bubbles
+    map.bubbles(allItems,{
+        popupTemplate: function(geo, data) {
+            return '<div class="hoverinfo">Description: ' + data.description +
+                    '<br>Name: ' + data.name +
+                    '<br>IP: ' + data.ip +
+                    '<br>Avg CPU Util %: ' + data.util +
+                    '<br>Avg WAN Link Util %: ' + data.wanUtil +
+                    '<br>Avg LAN Link Util %: ' + data.lanUtil
+        }
+    });
+    // Iterate through each interface to generate the circuit information and
+    // build the map connections from NY to various sites
+    $.each(jsonPath(loadJSON(dataSource2),"$.d.results[*]"), function(d, interface) {
+        // "Alias": "Link to FL LAN",
+        if (interface.Alias.indexOf("Origin") > -1) {
+            var start=sites[interface.Alias.substr(7,2)];
+            var end=sites[interface.Alias.substr(22,2)];
+            var utilization=Math.round(interface.portmfs.results[0].Value * 100) / 100
+            var speed=Number(interface.SpeedIn / 1000000);
+            circuits.push({
+                origin: start,
+                destination: end,
+                options: {
+                    strokeWidth: linkThickness(speed),
+                    strokeColor: utilizationColor(utilization),
+                    greatArc: false
+                },
+                alias: interface.Alias,
+                utilization: utilization,
+                name: interface.DisplayName,
+                ip: interface.IPAddresses,
+                speed: speed
+            })
+        }
+    });
+    // Create the arcs that represent the corresponding circuit
+    map.arc(circuits,{strokeWidth: 1, arcSharpness:.5});
+    // Add a legend to the map based on the color key used
+    map.legend({
+        labels: {
+            green: "0 - 60 %",
+            yellow: "60 - 80 %",
+            orange: "80 - 90 %",
+            red: "90 - 100 %"
+        }
+    });
+    // Enable resize of the SVG items when the browser window is
+    // refreshed
+    d3.select(window).on('resize', function() {
+        map.resize();
+    });
+
+
+    $('#intTable').dataTable ({
+        "data": circuits,
+        "columns": [
+            {title: "Circuit", data: "alias", className: "dt-body-left"},
+            {title: "Int Name", data: "name", className: "dt-center"},
+            {title: "IP", data: "ip", className: "dt-center"},
+            {title: "Speed (Mb/sec)", data: "speed", className: "dt-center"},
+            {title: "Avg Utilization (%)", data: "utilization", className: "dt-center"},
+        ]
+    })
+
+    // Draw the table using DataTable js library
+    //Add row to our summary table for each interface
+    $('#table').dataTable({
+        "data": allItems,
+        "columns": [
+            {title: "Device", data: "name", className: "dt-body-left"},
+            {title: "IP", data: "ip", className: "dt-center"},
+            {title: "Description", data: "description", className: "dt-center"},
+            {title: "Avg CPU Utilization", data: "util", className: "dt-center"}
+        ]
+    })
+
+</script>
+</body>

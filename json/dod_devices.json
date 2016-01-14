@@ -1,0 +1,67 @@
+{
+  "d": {
+    "__count": "102",
+    "results": [
+      {
+        "ID": "5493",
+        "Name": "NY-WAN",
+        "PrimaryIPAddress": "10.10.1.3",
+        "Latitude": "40.7141667",
+        "Longitude": "-74.0063889",
+        "LocationDesc": "New York NY",
+        "cpumfs": {
+          "results": [
+            {
+              "Value": "81.1354166666667"
+            }
+          ]
+        }
+      },
+      {
+        "ID": "5495",
+        "Name": "AZ-SITE",
+        "PrimaryIPAddress": "10.10.1.6",
+        "Latitude": "33.4483333",
+        "Longitude": "-112.0733333",
+        "LocationDesc": "Phoenix AZ",
+        "cpumfs": {
+          "results": [
+            {
+              "Value": "6.72569444444444"
+            }
+          ]
+        }
+      },
+      {
+        "ID": "5497",
+        "Name": "MI-SITE",
+        "PrimaryIPAddress": "10.10.1.1",
+        "Latitude": "42.3313889",
+        "Longitude": "-83.0458333",
+        "LocationDesc": "Detroit Michigan",
+        "cpumfs": {
+          "results": [
+            {
+              "Value": "66.02430555555556"
+            }
+          ]
+        }
+      },
+      {
+        "ID": "5498",
+        "Name": "FL-SITE",
+        "PrimaryIPAddress": "10.10.1.5",
+        "Latitude": "25.7738889",
+        "Longitude": "-80.1938889",
+        "LocationDesc": "Miami FL",
+        "cpumfs": {
+          "results": [
+            {
+              "Value": "26.04529616724739"
+            }
+          ]
+        }
+      }
+    ]
+  }
+}

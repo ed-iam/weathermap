@@ -1,0 +1,17 @@
+Manifest-Version: 1.0
+Archiver-Version: Plexus Archiver
+Created-By: Apache Maven Bundle Plugin
+Built-By: customers
+Build-Jdk: 1.7.0_09
+Bnd-LastModified: 1413985999249
+Bundle-ClassPath: .,WEB-INF/classes
+Bundle-Description: OpenAPI Custom Content
+Bundle-ManifestVersion: 2
+Bundle-Name: customerFiles
+Bundle-SymbolicName: com.ca.im.OpenAPI-Content
+Bundle-Version: 2.4.0
+Import-Package: com.ca.im.util;version="[1.0,2)",javax.servlet.jsp,org
+ .springframework.osgi.web.context.support
+Spring-Context: *;META-INF/spring;timeout:=210000000
+Tool: Bnd-1.50.0
+Webapp-Context: apps/weathermap
